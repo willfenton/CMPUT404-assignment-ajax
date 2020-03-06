@@ -9,13 +9,13 @@
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
         Copyright 2013 Abram Hindle
-        
+
         Licensed under the Apache License, Version 2.0 (the " License"); you may not use this file except in compliance
         with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless
         required by applicable law or agreed to in writing, software distributed under the License is distributed on
         an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for
         the specific language governing permissions and limitations under the License. "/>
-    <script src="json2.js">
+    <script src=" json2.js">
     </script>
 </head>
 
@@ -28,6 +28,17 @@
         var W = canvas.width = window.innerWidth - 6;
         var H = canvas.height = window.innerHeight - 50;
 
+        const minRadius = 5;
+        const maxRadius = 30;
+        var currentRadius = Math.random() * (maxRadius - minRadius) + minRadius;
+
+        var currentRed = Math.round(Math.random() * 255);
+        var currentGreen = Math.round(Math.random() * 255);
+        var currentBlue = Math.round(Math.random() * 255);
+
+        const colourScale = 30;
+        const radiusScale = 2;
+
 
         function sendJSONXMLHTTPRequest(url, objects, callback) {
             var xhr = new XMLHttpRequest();
@@ -36,7 +47,12 @@
                     try {
                         if (xhr.status == 200) {
                             //XXX: parse some JSON from the request!
+                            const data = JSON.parse(xhr.response);
+
                             //XXX: Pass the data to the callback!
+                            if (callback) {
+                                callback(data);
+                            }
                         }
                     }
                     catch (e) {
@@ -45,8 +61,14 @@
                 }
             };
             //XXX: POST to a URL
+            xhr.open('POST', url);
+
             //XXX: set the mimetype and the accept headers!
             // Remember to use application/json !
+            xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+            xhr.setRequestHeader('Accept', 'application/json');
+
+            xhr.send(JSON.stringify(objects));
         }
 
 
@@ -56,13 +78,16 @@
         function drawCircle(context, entity) {
             with (context) {
                 beginPath();
-                lineWidth = 3;
+
+                let radius = (entity["radius"]) ? entity["radius"] : 50;
+
+                lineWidth = Math.log(radius);
                 var x = entity["x"];
                 var y = entity["y"];
                 //moveTo(x,y);
                 fillStyle = entity["colour"];
                 strokeStyle = fillStyle;
-                arc(x, y, (entity["radius"]) ? entity["radius"] : 50, 0, 2.0 * Math.PI, false);
+                arc(x, y, radius, 0, 2.0 * Math.PI, false);
                 stroke();
             }
         }
@@ -135,7 +160,9 @@
             world[entity] = data;
             drawNextFrame(); // (but should we?)
             //XXX: Send a XHTML Request that updates the entity you just  modified!
+            let url = '/entity/' + entity
 
+            sendJSONXMLHTTPRequest(url, data, null);
         }
 
         var counter = 0;
@@ -145,11 +172,11 @@
             addEntity(name, data);
         }
 
-        // canvas + mouse/touch is complicated 
+        // canvas + mouse/touch is complicated
         // I give you this because well the mouse/touch stuff is a total
         // pain to get right. This has some out of context bug too.
         mouse = (function () {
-            // Now this isn't the most popular way of doing OO in 
+            // Now this isn't the most popular way of doing OO in
             // Javascript, but it relies on lexical scope and I like it
             // This isn't 301 so I'm not totally bound to OO :)
             var self;
@@ -244,23 +271,65 @@
         // Add the application specific mouse listeners!
         //XXX: TODO Make these prettier!
         mouse.mousedowners.push(function (x, y, clicked, e) {
-            addEntityWithoutName({ 'x': x, 'y': y, 'colour': 'blue' });
+            currentRed = Math.round(Math.random() * 255);
+            currentGreen = Math.round(Math.random() * 255);
+            currentBlue = Math.round(Math.random() * 255);
+
+            currentRadius = Math.random() * (maxRadius - minRadius) + minRadius;
+
+            addEntityWithoutName({
+                'x': x,
+                'y': y,
+                'colour': 'rgb(' + currentRed + ',' + currentBlue + ',' + currentGreen + ')',
+                'radius': currentRadius
+            });
         });
 
         mouse.mouseuppers.push(function (x, y, clicked, e) {
-            addEntityWithoutName({ 'x': x, 'y': y, 'colour': 'red' });
+            addEntityWithoutName({
+                'x': x,
+                'y': y,
+                'colour': 'rgb(' + currentRed + ',' + currentBlue + ',' + currentGreen + ')',
+                'radius': currentRadius
+            });
         });
 
         mouse.mousedraggers.push(function (x, y, clicked, e) {
             addEntityWithoutName({
-                'x': x, 'y': y, 'colour': 'green',
-                'radius': 10
+                'x': x,
+                'y': y,
+                'colour': 'rgb(' + currentRed + ',' + currentBlue + ',' + currentGreen + ')',
+                'radius': currentRadius
             });
+
+            currentRed = Math.max(0, Math.min(255, currentRed + (Math.random() * colourScale) - (colourScale / 2)));
+            currentGreen = Math.max(0, Math.min(255, currentGreen + (Math.random() * colourScale) - (colourScale / 2)));
+            currentBlue = Math.max(0, Math.min(255, currentBlue + (Math.random() * colourScale) - (colourScale / 2)));
+
+            currentRadius = Math.max(minRadius, Math.min(maxRadius, currentRadius + (Math.random() * radiusScale) - (radiusScale / 2)));
         });
 
 
         function update() {
             //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4) {
+                    try {
+                        if (xhr.status == 200) {
+                            world = JSON.parse(xhr.response);
+                            drawNextFrame();
+                        }
+                    }
+                    catch (e) {
+                        alert('Error: ' + e.name);
+                    }
+                }
+            };
+            xhr.open('GET', '/world');
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.send();
+
             drawFrame();
         }
 
