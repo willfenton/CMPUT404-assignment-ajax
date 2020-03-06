@@ -22,7 +22,7 @@
 
 
 import flask
-from flask import Flask, request
+from flask import Flask, request, redirect, url_for, Response
 import json
 app = Flask(__name__)
 app.debug = True
@@ -33,12 +33,13 @@ app.debug = True
 #    'b':{'x':2, 'y':3}
 # }
 
+
 class World:
     def __init__(self):
         self.clear()
         
     def update(self, entity, key, value):
-        entry = self.space.get(entity,dict())
+        entry = self.space.get(entity, dict())
         entry[key] = value
         self.space[entity] = entry
 
@@ -49,7 +50,7 @@ class World:
         self.space = dict()
 
     def get(self, entity):
-        return self.space.get(entity,dict())
+        return self.space.get(entity, dict())
     
     def world(self):
         return self.space
@@ -74,27 +75,38 @@ def flask_post_json():
 @app.route("/")
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    # redirect to /static/index.html
+    return redirect(url_for('static', filename='index.html'))
 
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    return None
+    # parse the request body for the new entity
+    entity_data = flask_post_json()
+    # update the entity
+    myWorld.set(entity, entity_data)
+    # return the entity data in response
+    return Response(json.dumps(myWorld.get(entity)), status=200, mimetype='application/json')
 
 @app.route("/world", methods=['POST','GET'])    
 def world():
     '''you should probably return the world here'''
-    return None
+    # send the world in response
+    return Response(json.dumps(myWorld.world()), status=200, mimetype='application/json')
 
 @app.route("/entity/<entity>")    
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
+    # return the entity data in response
+    return Response(json.dumps(myWorld.get(entity)), status=200, mimetype='application/json')
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    return None
+    # clear the world
+    myWorld.clear()
+    # send the world in response
+    return Response(json.dumps(myWorld.world()), status=200, mimetype='application/json')
 
 if __name__ == "__main__":
     app.run()
